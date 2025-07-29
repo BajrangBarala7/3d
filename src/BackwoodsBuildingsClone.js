@@ -20,7 +20,7 @@ const BackwoodsBuildingsClone = () => {
     roofColor: '#2F4F4F',
     doorStyle: 'Single Door',
     doorPosition: 'front',
-    windows: [],
+    windows: [{ position: 'front-right', style: 'standard' }],
     features: {
       loft: false,
       shelving: false,
@@ -66,8 +66,8 @@ const BackwoodsBuildingsClone = () => {
 
   const sidingColors = [
     { name: 'Brown', color: '#8B4513' },
-    { name: 'White', color: '#FFFFFF' },
-    { name: 'Gray', color: '#808080' },
+    { name: 'White', color: '#F5F5F5' },
+    { name: 'Gray', color: '#696969' },
     { name: 'Green', color: '#228B22' },
     { name: 'Red', color: '#B22222' },
     { name: 'Blue', color: '#4169E1' },
@@ -108,38 +108,77 @@ const BackwoodsBuildingsClone = () => {
 
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
+    scene.background = new THREE.Color(0xE6F3FF); // Light blue sky
+    scene.fog = new THREE.Fog(0xE6F3FF, 50, 200); // Atmospheric fog
     
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(75, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
-    camera.position.set(25, 15, 25);
+    // Camera setup with better positioning
+    const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
+    camera.position.set(35, 25, 35);
+    camera.lookAt(0, 0, 0);
     
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Renderer setup with enhanced quality
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance"
+    });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    renderer.outputEncoding = THREE.sRGBEncoding;
     
     mountRef.current.appendChild(renderer.domElement);
     
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    // Professional Lighting Setup
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(50, 50, 50);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    scene.add(directionalLight);
+    // Main directional light (sun)
+    const sunLight = new THREE.DirectionalLight(0xFFFFE0, 1.2);
+    sunLight.position.set(50, 100, 50);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 4096;
+    sunLight.shadow.mapSize.height = 4096;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 200;
+    sunLight.shadow.camera.left = -50;
+    sunLight.shadow.camera.right = 50;
+    sunLight.shadow.camera.top = 50;
+    sunLight.shadow.camera.bottom = -50;
+    sunLight.shadow.bias = -0.0001;
+    scene.add(sunLight);
     
-    // Ground
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
-    const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+    // Fill light for softer shadows
+    const fillLight = new THREE.DirectionalLight(0x87CEEB, 0.3);
+    fillLight.position.set(-30, 30, -30);
+    scene.add(fillLight);
+    
+    // Professional Ground
+    const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
+    const groundMaterial = new THREE.MeshLambertMaterial({ 
+      color: 0x4A7C59,
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    // Add subtle noise to ground
+    const groundVertices = groundGeometry.attributes.position.array;
+    for (let i = 0; i < groundVertices.length; i += 3) {
+      groundVertices[i + 2] += Math.random() * 0.3 - 0.15; // Random height variation
+    }
+    groundGeometry.attributes.position.needsUpdate = true;
+    groundGeometry.computeVertexNormals();
+    
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
+    
+    // Add environment elements
+    createEnvironment(scene);
     
     // Store references
     sceneRef.current = scene;
@@ -149,9 +188,21 @@ const BackwoodsBuildingsClone = () => {
     // Initial building
     createBuilding();
     
-    // Mouse controls
+    // Enhanced mouse controls
     let isDragging = false;
     let previousMousePosition = { x: 0, y: 0 };
+    let cameraDistance = 50;
+    let cameraAngleX = 0;
+    let cameraAngleY = 0.5;
+    
+    const updateCameraPosition = () => {
+      const x = cameraDistance * Math.sin(cameraAngleX) * Math.cos(cameraAngleY);
+      const y = cameraDistance * Math.sin(cameraAngleY);
+      const z = cameraDistance * Math.cos(cameraAngleX) * Math.cos(cameraAngleY);
+      
+      camera.position.set(x, y, z);
+      camera.lookAt(0, buildingConfig.height / 2, 0);
+    };
     
     const handleMouseDown = (event) => {
       isDragging = true;
@@ -166,11 +217,11 @@ const BackwoodsBuildingsClone = () => {
         y: event.clientY - previousMousePosition.y
       };
       
-      const rotationSpeed = 0.005;
-      camera.position.x = camera.position.x * Math.cos(deltaMove.x * rotationSpeed) - camera.position.z * Math.sin(deltaMove.x * rotationSpeed);
-      camera.position.z = camera.position.x * Math.sin(deltaMove.x * rotationSpeed) + camera.position.z * Math.cos(deltaMove.x * rotationSpeed);
+      cameraAngleX += deltaMove.x * 0.01;
+      cameraAngleY += deltaMove.y * 0.01;
+      cameraAngleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngleY));
       
-      camera.lookAt(0, 0, 0);
+      updateCameraPosition();
       previousMousePosition = { x: event.clientX, y: event.clientY };
     };
     
@@ -179,10 +230,9 @@ const BackwoodsBuildingsClone = () => {
     };
     
     const handleWheel = (event) => {
-      const zoomSpeed = 0.1;
-      const direction = event.deltaY > 0 ? 1 : -1;
-      camera.position.multiplyScalar(1 + direction * zoomSpeed);
-      camera.lookAt(0, 0, 0);
+      cameraDistance += event.deltaY * 0.05;
+      cameraDistance = Math.max(15, Math.min(80, cameraDistance));
+      updateCameraPosition();
     };
     
     renderer.domElement.addEventListener('mousedown', handleMouseDown);
@@ -197,8 +247,20 @@ const BackwoodsBuildingsClone = () => {
     };
     animate();
     
+    // Handle resize
+    const handleResize = () => {
+      if (mountRef.current) {
+        camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
     // Cleanup
     return () => {
+      window.removeEventListener('resize', handleResize);
       if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement);
       }
@@ -206,13 +268,75 @@ const BackwoodsBuildingsClone = () => {
     };
   }, []);
 
+  // Create Environment
+  const createEnvironment = (scene) => {
+    // Add some trees in background
+    for (let i = 0; i < 8; i++) {
+      const treeGroup = new THREE.Group();
+      
+      // Tree trunk
+      const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 8);
+      const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+      const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+      trunk.position.y = 4;
+      trunk.castShadow = true;
+      treeGroup.add(trunk);
+      
+      // Tree foliage
+      const foliageGeometry = new THREE.SphereGeometry(4, 8, 6);
+      const foliageMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+      const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+      foliage.position.y = 10;
+      foliage.castShadow = true;
+      treeGroup.add(foliage);
+      
+      // Random positioning
+      const angle = (i / 8) * Math.PI * 2;
+      const distance = 60 + Math.random() * 40;
+      treeGroup.position.x = Math.cos(angle) * distance;
+      treeGroup.position.z = Math.sin(angle) * distance;
+      treeGroup.scale.set(0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4, 0.8 + Math.random() * 0.4);
+      
+      scene.add(treeGroup);
+    }
+    
+    // Add clouds
+    for (let i = 0; i < 5; i++) {
+      const cloudGroup = new THREE.Group();
+      
+      for (let j = 0; j < 6; j++) {
+        const cloudGeometry = new THREE.SphereGeometry(3 + Math.random() * 2, 8, 6);
+        const cloudMaterial = new THREE.MeshBasicMaterial({ 
+          color: 0xFFFFFF,
+          transparent: true,
+          opacity: 0.8
+        });
+        const cloudPart = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        cloudPart.position.set(
+          (Math.random() - 0.5) * 15,
+          Math.random() * 3,
+          (Math.random() - 0.5) * 15
+        );
+        cloudGroup.add(cloudPart);
+      }
+      
+      cloudGroup.position.set(
+        (Math.random() - 0.5) * 150,
+        40 + Math.random() * 20,
+        (Math.random() - 0.5) * 150
+      );
+      
+      scene.add(cloudGroup);
+    }
+  };
+
   // Update building when config changes
   useEffect(() => {
     createBuilding();
     calculatePricing();
-  }, [buildingConfig.model, buildingConfig.width, buildingConfig.length, buildingConfig.height, buildingConfig.roofStyle, buildingConfig.features]);
+  }, [buildingConfig.model, buildingConfig.width, buildingConfig.length, buildingConfig.height, buildingConfig.roofStyle, buildingConfig.sidingColor, buildingConfig.trimColor, buildingConfig.features]);
 
-  // Create 3D Building
+  // Create Professional 3D Building
   const createBuilding = () => {
     if (!sceneRef.current) return;
     
@@ -228,89 +352,311 @@ const BackwoodsBuildingsClone = () => {
     const length = buildingConfig.length;
     const height = buildingConfig.height;
     
-    // Walls
-    const wallMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.sidingColor });
+    // Create materials with proper properties
+    const sidingMaterial = new THREE.MeshPhongMaterial({ 
+      color: buildingConfig.sidingColor,
+      shininess: 5,
+      specular: 0x111111
+    });
     
-    // Front wall
-    const frontWallGeometry = new THREE.PlaneGeometry(width, height);
-    const frontWall = new THREE.Mesh(frontWallGeometry, wallMaterial);
-    frontWall.position.set(0, height/2, length/2);
+    const trimMaterial = new THREE.MeshPhongMaterial({ 
+      color: buildingConfig.trimColor,
+      shininess: 10,
+      specular: 0x222222
+    });
+    
+    const roofMaterial = new THREE.MeshPhongMaterial({ 
+      color: buildingConfig.roofColor,
+      shininess: 30,
+      specular: 0x333333
+    });
+    
+    // Foundation
+    const foundationGeometry = new THREE.BoxGeometry(width + 1, 0.5, length + 1);
+    const foundationMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
+    const foundation = new THREE.Mesh(foundationGeometry, foundationMaterial);
+    foundation.position.y = 0.25;
+    foundation.castShadow = true;
+    foundation.receiveShadow = true;
+    buildingGroup.add(foundation);
+    
+    // Main building structure
+    const wallThickness = 0.2;
+    
+    // Front wall with door opening
+    const frontWallShape = new THREE.Shape();
+    frontWallShape.moveTo(-width/2, 0);
+    frontWallShape.lineTo(width/2, 0);
+    frontWallShape.lineTo(width/2, height);
+    frontWallShape.lineTo(-width/2, height);
+    frontWallShape.lineTo(-width/2, 0);
+    
+    // Door opening
+    const doorHole = new THREE.Path();
+    doorHole.moveTo(-width/4 - 1.5, 0);
+    doorHole.lineTo(-width/4 + 1.5, 0);
+    doorHole.lineTo(-width/4 + 1.5, 6.5);
+    doorHole.lineTo(-width/4 - 1.5, 6.5);
+    doorHole.lineTo(-width/4 - 1.5, 0);
+    frontWallShape.holes.push(doorHole);
+    
+    // Window opening
+    if (buildingConfig.windows.length > 0) {
+      const windowHole = new THREE.Path();
+      windowHole.moveTo(width/4 - 1, 3);
+      windowHole.lineTo(width/4 + 1, 3);
+      windowHole.lineTo(width/4 + 1, 5);
+      windowHole.lineTo(width/4 - 1, 5);
+      windowHole.lineTo(width/4 - 1, 3);
+      frontWallShape.holes.push(windowHole);
+    }
+    
+    const frontWallGeometry = new THREE.ExtrudeGeometry(frontWallShape, {
+      depth: wallThickness,
+      bevelEnabled: false
+    });
+    const frontWall = new THREE.Mesh(frontWallGeometry, sidingMaterial);
+    frontWall.position.z = length/2;
     frontWall.castShadow = true;
+    frontWall.receiveShadow = true;
     buildingGroup.add(frontWall);
     
     // Back wall
-    const backWall = new THREE.Mesh(frontWallGeometry, wallMaterial);
+    const backWallGeometry = new THREE.BoxGeometry(width, height, wallThickness);
+    const backWall = new THREE.Mesh(backWallGeometry, sidingMaterial);
     backWall.position.set(0, height/2, -length/2);
-    backWall.rotation.y = Math.PI;
     backWall.castShadow = true;
+    backWall.receiveShadow = true;
     buildingGroup.add(backWall);
     
     // Side walls
-    const sideWallGeometry = new THREE.PlaneGeometry(length, height);
-    const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+    const leftWallGeometry = new THREE.BoxGeometry(wallThickness, height, length);
+    const leftWall = new THREE.Mesh(leftWallGeometry, sidingMaterial);
     leftWall.position.set(-width/2, height/2, 0);
-    leftWall.rotation.y = Math.PI/2;
     leftWall.castShadow = true;
+    leftWall.receiveShadow = true;
     buildingGroup.add(leftWall);
     
-    const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+    const rightWall = new THREE.Mesh(leftWallGeometry, sidingMaterial);
     rightWall.position.set(width/2, height/2, 0);
-    rightWall.rotation.y = -Math.PI/2;
     rightWall.castShadow = true;
+    rightWall.receiveShadow = true;
     buildingGroup.add(rightWall);
     
-    // Roof
-    const roofMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.roofColor });
+    // Professional Roof System
+    createRoof(buildingGroup, width, length, height, roofMaterial);
+    
+    // Door
+    const doorGeometry = new THREE.BoxGeometry(3, 6.5, 0.1);
+    const doorMaterial = new THREE.MeshPhongMaterial({ 
+      color: new THREE.Color(buildingConfig.trimColor).multiplyScalar(0.8),
+      shininess: 20
+    });
+    const door = new THREE.Mesh(doorGeometry, doorMaterial);
+    door.position.set(-width/4, 3.25, length/2 + 0.15);
+    door.castShadow = true;
+    buildingGroup.add(door);
+    
+    // Door handle
+    const handleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const handleMaterial = new THREE.MeshPhongMaterial({ 
+      color: 0xFFD700,
+      shininess: 100,
+      specular: 0x666666
+    });
+    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+    handle.position.set(-width/4 + 1, 3.25, length/2 + 0.2);
+    buildingGroup.add(handle);
+    
+    // Door frame
+    const frameGeometry = new THREE.BoxGeometry(3.2, 6.7, 0.3);
+    const doorFrame = new THREE.Mesh(frameGeometry, trimMaterial);
+    doorFrame.position.set(-width/4, 3.35, length/2 + 0.05);
+    doorFrame.castShadow = true;
+    buildingGroup.add(doorFrame);
+    
+    // Windows
+    if (buildingConfig.windows.length > 0) {
+      const windowGeometry = new THREE.BoxGeometry(2, 2, 0.05);
+      const windowMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x87CEEB,
+        transparent: true,
+        opacity: 0.7,
+        shininess: 100,
+        specular: 0x444444
+      });
+      const windowMesh = new THREE.Mesh(windowGeometry, windowMaterial);
+      windowMesh.position.set(width/4, 4, length/2 + 0.12);
+      buildingGroup.add(windowMesh);
+      
+      // Window frame
+      const windowFrameGeometry = new THREE.BoxGeometry(2.2, 2.2, 0.2);
+      const windowFrame = new THREE.Mesh(windowFrameGeometry, trimMaterial);
+      windowFrame.position.set(width/4, 4, length/2 + 0.05);
+      windowFrame.castShadow = true;
+      buildingGroup.add(windowFrame);
+      
+      // Window cross
+      const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2, 0.1), trimMaterial);
+      crossV.position.set(width/4, 4, length/2 + 0.13);
+      buildingGroup.add(crossV);
+      
+      const crossH = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 0.1), trimMaterial);
+      crossH.position.set(width/4, 4, length/2 + 0.13);
+      buildingGroup.add(crossH);
+    }
+    
+    // Corner trim
+    const cornerTrimGeometry = new THREE.BoxGeometry(0.3, height, 0.3);
+    const corners = [
+      { x: -width/2, z: length/2 },
+      { x: width/2, z: length/2 },
+      { x: -width/2, z: -length/2 },
+      { x: width/2, z: -length/2 }
+    ];
+    
+    corners.forEach(corner => {
+      const cornerTrim = new THREE.Mesh(cornerTrimGeometry, trimMaterial);
+      cornerTrim.position.set(corner.x, height/2, corner.z);
+      cornerTrim.castShadow = true;
+      buildingGroup.add(cornerTrim);
+    });
+    
+    // Base trim
+    const baseTrimGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, 0.3);
+    const frontBaseTrim = new THREE.Mesh(baseTrimGeometry, trimMaterial);
+    frontBaseTrim.position.set(0, 0.25, length/2 + 0.1);
+    buildingGroup.add(frontBaseTrim);
+    
+    const backBaseTrim = new THREE.Mesh(baseTrimGeometry, trimMaterial);
+    backBaseTrim.position.set(0, 0.25, -length/2 - 0.1);
+    buildingGroup.add(backBaseTrim);
+    
+    // Add features if selected
+    if (buildingConfig.features.loft) {
+      addLoftFeature(buildingGroup, width, length, height);
+    }
+    
+    buildingRef.current = buildingGroup;
+    sceneRef.current.add(buildingGroup);
+  };
+
+  // Create Professional Roof
+  const createRoof = (buildingGroup, width, length, height, roofMaterial) => {
+    const roofOverhang = 1.5;
+    const roofHeight = 4;
     
     if (buildingConfig.roofStyle === 'Gable') {
-      // Gable roof
-      const roofGeometry = new THREE.PlaneGeometry(width * 1.2, length * 1.2);
-      const leftRoof = new THREE.Mesh(roofGeometry, roofMaterial);
-      leftRoof.position.set(-width/4, height + 2, 0);
-      leftRoof.rotation.z = Math.PI/6;
-      leftRoof.castShadow = true;
-      buildingGroup.add(leftRoof);
+      // Gable roof with proper geometry
+      const roofShape = new THREE.Shape();
+      roofShape.moveTo(-width/2 - roofOverhang, 0);
+      roofShape.lineTo(0, roofHeight);
+      roofShape.lineTo(width/2 + roofOverhang, 0);
+      roofShape.lineTo(-width/2 - roofOverhang, 0);
       
-      const rightRoof = new THREE.Mesh(roofGeometry, roofMaterial);
-      rightRoof.position.set(width/4, height + 2, 0);
-      rightRoof.rotation.z = -Math.PI/6;
-      rightRoof.castShadow = true;
-      buildingGroup.add(rightRoof);
-    } else if (buildingConfig.roofStyle === 'Hip') {
-      // Hip roof (simplified)
-      const roofGeometry = new THREE.ConeGeometry(Math.max(width, length)/2, 3, 4);
+      const roofGeometry = new THREE.ExtrudeGeometry(roofShape, {
+        depth: length + roofOverhang * 2,
+        bevelEnabled: false
+      });
+      
       const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-      roof.position.set(0, height + 1.5, 0);
+      roof.position.set(0, height, -roofOverhang);
+      roof.castShadow = true;
+      roof.receiveShadow = true;
+      buildingGroup.add(roof);
+      
+      // Roof end caps
+      const endCapGeometry = new THREE.BufferGeometry();
+      const vertices = new Float32Array([
+        -width/2 - roofOverhang, 0, 0,
+        0, roofHeight, 0,
+        width/2 + roofOverhang, 0, 0
+      ]);
+      endCapGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      endCapGeometry.computeVertexNormals();
+      
+      const frontEndCap = new THREE.Mesh(endCapGeometry, roofMaterial);
+      frontEndCap.position.set(0, height, length/2 + roofOverhang);
+      frontEndCap.castShadow = true;
+      buildingGroup.add(frontEndCap);
+      
+      const backEndCap = new THREE.Mesh(endCapGeometry, roofMaterial);
+      backEndCap.position.set(0, height, -length/2 - roofOverhang);
+      backEndCap.rotation.y = Math.PI;
+      backEndCap.castShadow = true;
+      buildingGroup.add(backEndCap);
+      
+    } else if (buildingConfig.roofStyle === 'Hip') {
+      // Hip roof
+      const roofGeometry = new THREE.ConeGeometry(Math.max(width, length)/2 + roofOverhang, roofHeight, 4);
+      const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+      roof.position.set(0, height + roofHeight/2, 0);
       roof.rotation.y = Math.PI/4;
+      roof.castShadow = true;
+      buildingGroup.add(roof);
+      
+    } else if (buildingConfig.roofStyle === 'Gambrel') {
+      // Gambrel roof (barn style)
+      const roofShape = new THREE.Shape();
+      roofShape.moveTo(-width/2 - roofOverhang, 0);
+      roofShape.lineTo(-width/4, roofHeight * 0.6);
+      roofShape.lineTo(0, roofHeight);
+      roofShape.lineTo(width/4, roofHeight * 0.6);
+      roofShape.lineTo(width/2 + roofOverhang, 0);
+      roofShape.lineTo(-width/2 - roofOverhang, 0);
+      
+      const roofGeometry = new THREE.ExtrudeGeometry(roofShape, {
+        depth: length + roofOverhang * 2,
+        bevelEnabled: false
+      });
+      
+      const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+      roof.position.set(0, height, -roofOverhang);
       roof.castShadow = true;
       buildingGroup.add(roof);
     }
     
-    // Door
-    const doorMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.trimColor });
-    const doorGeometry = new THREE.PlaneGeometry(3, 6.5);
-    const door = new THREE.Mesh(doorGeometry, doorMaterial);
-    door.position.set(-width/4, 3.25, length/2 + 0.01);
-    buildingGroup.add(door);
+    // Ridge cap
+    if (buildingConfig.roofStyle === 'Gable' || buildingConfig.roofStyle === 'Gambrel') {
+      const ridgeGeometry = new THREE.BoxGeometry(0.3, 0.3, length + roofOverhang * 2);
+      const ridgeMaterial = new THREE.MeshPhongMaterial({ 
+        color: new THREE.Color(buildingConfig.roofColor).multiplyScalar(0.9)
+      });
+      const ridge = new THREE.Mesh(ridgeGeometry, ridgeMaterial);
+      ridge.position.set(0, height + roofHeight + 0.15, 0);
+      ridge.castShadow = true;
+      buildingGroup.add(ridge);
+    }
+  };
+
+  // Add Loft Feature
+  const addLoftFeature = (buildingGroup, width, length, height) => {
+    // Loft floor
+    const loftGeometry = new THREE.BoxGeometry(width - 1, 0.2, length - 1);
+    const loftMaterial = new THREE.MeshPhongMaterial({ color: 0xDEB887 });
+    const loft = new THREE.Mesh(loftGeometry, loftMaterial);
+    loft.position.set(0, height - 2, 0);
+    loft.castShadow = true;
+    loft.receiveShadow = true;
+    buildingGroup.add(loft);
     
-    // Door frame
-    const frameMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.trimColor });
-    const frameGeometry = new THREE.BoxGeometry(3.5, 7, 0.2);
-    const doorFrame = new THREE.Mesh(frameGeometry, frameMaterial);
-    doorFrame.position.set(-width/4, 3.5, length/2 + 0.1);
-    buildingGroup.add(doorFrame);
+    // Loft supports
+    const supportGeometry = new THREE.BoxGeometry(0.2, 2, 0.2);
+    const supportMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
     
-    // Windows (if any)
-    buildingConfig.windows.forEach((window, index) => {
-      const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.7 });
-      const windowGeometry = new THREE.PlaneGeometry(2, 2);
-      const windowMesh = new THREE.Mesh(windowGeometry, windowMaterial);
-      windowMesh.position.set(width/4, height/2, length/2 + 0.01);
-      buildingGroup.add(windowMesh);
+    const supportPositions = [
+      { x: -width/3, z: -length/3 },
+      { x: width/3, z: -length/3 },
+      { x: -width/3, z: length/3 },
+      { x: width/3, z: length/3 }
+    ];
+    
+    supportPositions.forEach(pos => {
+      const support = new THREE.Mesh(supportGeometry, supportMaterial);
+      support.position.set(pos.x, height - 3, pos.z);
+      support.castShadow = true;
+      buildingGroup.add(support);
     });
-    
-    buildingRef.current = buildingGroup;
-    sceneRef.current.add(buildingGroup);
   };
 
   // Calculate Pricing
@@ -547,7 +893,7 @@ const BackwoodsBuildingsClone = () => {
             <h3 className="text-xl font-bold text-gray-800 mb-4">Add Features</h3>
             <div className="space-y-4">
               {[
-                { key: 'loft', name: 'Loft Storage', price: 800, description: 'Additional overhead storage space' },
+                { key: 'loft', name: 'Loft Storage', price: 800, description: 'Additional overhead storage space with support beams' },
                 { key: 'shelving', name: 'Wall Shelving', price: 200, description: 'Built-in wall mounted shelves' },
                 { key: 'workbench', name: 'Workbench', price: 350, description: 'Sturdy work surface' },
                 { key: 'electrical', name: 'Electrical Package', price: 500, description: 'Wiring and outlets' },
