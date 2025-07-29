@@ -1,7 +1,7 @@
 {
-  "name": "3d-building-configurator",
+  "name": "backwoods-3d-exact-replica",
   "version": "1.0.0",
-  "description": "A 3D building configurator using React and Three.js",
+  "description": "Exact replica of backwoodsbuildings.custom3dbuilder.com - 3D building configurator without pricing",
   "main": "src/index.js",
   "scripts": {
     "start": "react-scripts start",
