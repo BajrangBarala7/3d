@@ -1,13 +1,96 @@
+/* Microsoft Teams Clone Styles */
 .App {
-  text-align: center;
+  height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.App-header {
-  background-color: #282c34;
-  padding: 20px;
+/* Custom scrollbar for better Teams-like appearance */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Message hover effects */
+.message-item:hover .message-actions {
+  opacity: 1;
+}
+
+/* Smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus styles for accessibility */
+button:focus,
+input:focus,
+textarea:focus {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+}
+
+/* Teams-like button styles */
+.teams-button {
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.teams-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Avatar styles */
+.avatar {
+  background: linear-gradient(45deg, #0078d4, #106ebe);
   color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
-.App-link {
-  color: #61dafb;
+/* Channel active state */
+.channel-active {
+  background: #464775;
+  border-left: 3px solid #0078d4;
+}
+
+/* Message bubble animations */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item {
+  animation: messageSlideIn 0.3s ease-out;
+}
+
+/* Video call grid responsive */
+@media (max-width: 768px) {
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
 }
