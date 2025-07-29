@@ -2,41 +2,105 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 
 const BackwoodsBuildingsClone = () => {
+  // Configuration Steps
+  const [currentStep, setCurrentStep] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState('');
+  
+  // Building Configuration
   const [buildingConfig, setBuildingConfig] = useState({
-    width: 24,
-    depth: 12,
+    model: 'Utility Shed',
+    width: 12,
+    length: 16,
     height: 8,
-    ceilingHeight: "8' 0\"",
-    roofPitch: "4:12",
-    roofOverhang: "12\"",
-    material: "Steel",
+    roofStyle: 'Gable',
+    roofPitch: '4:12',
+    sidingColor: '#8B4513',
+    trimColor: '#FFFFFF',
+    roofColor: '#2F4F4F',
+    doorStyle: 'Single Door',
+    doorPosition: 'front',
+    windows: [],
     features: {
-      shutters: false,
-      enclosed: false,
-      postWrap: false,
-      concrete: false
+      loft: false,
+      shelving: false,
+      workbench: false,
+      electrical: false,
+      insulation: false
+    },
+    pricing: {
+      base: 2500,
+      options: 0,
+      total: 2500
     }
   });
-  
-  const [quoteForm, setQuoteForm] = useState({
+
+  // User Information
+  const [userInfo, setUserInfo] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
-    description: ''
+    zipCode: '',
+    password: ''
   });
 
+  // Available Options
+  const buildingModels = [
+    { name: 'Utility Shed', basePrice: 2500 },
+    { name: 'Barn Style', basePrice: 3200 },
+    { name: 'Lean-To', basePrice: 1800 },
+    { name: 'Garage', basePrice: 4500 },
+    { name: 'Workshop', basePrice: 3800 }
+  ];
+
+  const widthOptions = [8, 10, 12, 14, 16, 18, 20, 24];
+  const lengthOptions = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
+  
+  const roofStyles = [
+    { name: 'Gable', price: 0 },
+    { name: 'Hip', price: 300 },
+    { name: 'Gambrel', price: 500 },
+    { name: 'Shed', price: -200 }
+  ];
+
+  const sidingColors = [
+    { name: 'Brown', color: '#8B4513' },
+    { name: 'White', color: '#FFFFFF' },
+    { name: 'Gray', color: '#808080' },
+    { name: 'Green', color: '#228B22' },
+    { name: 'Red', color: '#B22222' },
+    { name: 'Blue', color: '#4169E1' },
+    { name: 'Tan', color: '#D2B48C' },
+    { name: 'Black', color: '#2F2F2F' }
+  ];
+
+  const trimColors = [
+    { name: 'White', color: '#FFFFFF' },
+    { name: 'Black', color: '#2F2F2F' },
+    { name: 'Brown', color: '#8B4513' },
+    { name: 'Gray', color: '#808080' }
+  ];
+
+  // 3D Scene References
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
   const cameraRef = useRef(null);
   const buildingRef = useRef(null);
+  const controlsRef = useRef(null);
+
+  // Configuration Steps
+  const steps = [
+    { title: 'Select Model', component: 'model' },
+    { title: 'Choose Width', component: 'width' },
+    { title: 'Choose Length', component: 'length' },
+    { title: 'Select Roof', component: 'roof' },
+    { title: 'Siding Color', component: 'siding' },
+    { title: 'Trim Color', component: 'trim' },
+    { title: 'Add Features', component: 'features' },
+    { title: 'Review & Save', component: 'review' }
+  ];
 
   // Initialize 3D Scene
   useEffect(() => {
@@ -48,7 +112,7 @@ const BackwoodsBuildingsClone = () => {
     
     // Camera setup
     const camera = new THREE.PerspectiveCamera(75, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
-    camera.position.set(30, 20, 30);
+    camera.position.set(25, 15, 25);
     
     // Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -85,7 +149,7 @@ const BackwoodsBuildingsClone = () => {
     // Initial building
     createBuilding();
     
-    // Controls
+    // Mouse controls
     let isDragging = false;
     let previousMousePosition = { x: 0, y: 0 };
     
@@ -102,15 +166,11 @@ const BackwoodsBuildingsClone = () => {
         y: event.clientY - previousMousePosition.y
       };
       
-      const spherical = new THREE.Spherical();
-      spherical.setFromVector3(camera.position);
-      spherical.theta -= deltaMove.x * 0.01;
-      spherical.phi += deltaMove.y * 0.01;
-      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+      const rotationSpeed = 0.005;
+      camera.position.x = camera.position.x * Math.cos(deltaMove.x * rotationSpeed) - camera.position.z * Math.sin(deltaMove.x * rotationSpeed);
+      camera.position.z = camera.position.x * Math.sin(deltaMove.x * rotationSpeed) + camera.position.z * Math.cos(deltaMove.x * rotationSpeed);
       
-      camera.position.setFromSpherical(spherical);
       camera.lookAt(0, 0, 0);
-      
       previousMousePosition = { x: event.clientX, y: event.clientY };
     };
     
@@ -119,8 +179,10 @@ const BackwoodsBuildingsClone = () => {
     };
     
     const handleWheel = (event) => {
-      const scale = event.deltaY > 0 ? 1.1 : 0.9;
-      camera.position.multiplyScalar(scale);
+      const zoomSpeed = 0.1;
+      const direction = event.deltaY > 0 ? 1 : -1;
+      camera.position.multiplyScalar(1 + direction * zoomSpeed);
+      camera.lookAt(0, 0, 0);
     };
     
     renderer.domElement.addEventListener('mousedown', handleMouseDown);
@@ -144,6 +206,13 @@ const BackwoodsBuildingsClone = () => {
     };
   }, []);
 
+  // Update building when config changes
+  useEffect(() => {
+    createBuilding();
+    calculatePricing();
+  }, [buildingConfig.model, buildingConfig.width, buildingConfig.length, buildingConfig.height, buildingConfig.roofStyle, buildingConfig.features]);
+
+  // Create 3D Building
   const createBuilding = () => {
     if (!sceneRef.current) return;
     
@@ -152,73 +221,167 @@ const BackwoodsBuildingsClone = () => {
       sceneRef.current.remove(buildingRef.current);
     }
     
-    const building = new THREE.Group();
+    const buildingGroup = new THREE.Group();
     
-    // Base structure
-    const wallHeight = buildingConfig.height;
-    const roofHeight = 4;
+    // Building dimensions
+    const width = buildingConfig.width;
+    const length = buildingConfig.length;
+    const height = buildingConfig.height;
     
     // Walls
-    const wallMaterial = new THREE.MeshLambertMaterial({ 
-      color: buildingConfig.material === 'Steel' ? 0x8B4513 : 
-             buildingConfig.material === 'Wood' ? 0xDEB887 : 0xD3D3D3 
-    });
+    const wallMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.sidingColor });
     
-    // Front and back walls
-    const frontWallGeometry = new THREE.PlaneGeometry(buildingConfig.width, wallHeight);
+    // Front wall
+    const frontWallGeometry = new THREE.PlaneGeometry(width, height);
     const frontWall = new THREE.Mesh(frontWallGeometry, wallMaterial);
-    frontWall.position.set(0, wallHeight/2, buildingConfig.depth/2);
-    building.add(frontWall);
+    frontWall.position.set(0, height/2, length/2);
+    frontWall.castShadow = true;
+    buildingGroup.add(frontWall);
     
+    // Back wall
     const backWall = new THREE.Mesh(frontWallGeometry, wallMaterial);
-    backWall.position.set(0, wallHeight/2, -buildingConfig.depth/2);
+    backWall.position.set(0, height/2, -length/2);
     backWall.rotation.y = Math.PI;
-    building.add(backWall);
+    backWall.castShadow = true;
+    buildingGroup.add(backWall);
     
     // Side walls
-    const sideWallGeometry = new THREE.PlaneGeometry(buildingConfig.depth, wallHeight);
+    const sideWallGeometry = new THREE.PlaneGeometry(length, height);
     const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
-    leftWall.position.set(-buildingConfig.width/2, wallHeight/2, 0);
+    leftWall.position.set(-width/2, height/2, 0);
     leftWall.rotation.y = Math.PI/2;
-    building.add(leftWall);
+    leftWall.castShadow = true;
+    buildingGroup.add(leftWall);
     
     const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
-    rightWall.position.set(buildingConfig.width/2, wallHeight/2, 0);
+    rightWall.position.set(width/2, height/2, 0);
     rightWall.rotation.y = -Math.PI/2;
-    building.add(rightWall);
+    rightWall.castShadow = true;
+    buildingGroup.add(rightWall);
     
     // Roof
-    const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
-    const roofGeometry = new THREE.CylinderGeometry(0, buildingConfig.width/2 + 2, roofHeight, 4);
-    roofGeometry.rotateY(Math.PI/4);
-    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof.position.set(0, wallHeight + roofHeight/2, 0);
-    roof.scale.set(1, 1, buildingConfig.depth/buildingConfig.width);
-    building.add(roof);
+    const roofMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.roofColor });
+    
+    if (buildingConfig.roofStyle === 'Gable') {
+      // Gable roof
+      const roofGeometry = new THREE.PlaneGeometry(width * 1.2, length * 1.2);
+      const leftRoof = new THREE.Mesh(roofGeometry, roofMaterial);
+      leftRoof.position.set(-width/4, height + 2, 0);
+      leftRoof.rotation.z = Math.PI/6;
+      leftRoof.castShadow = true;
+      buildingGroup.add(leftRoof);
+      
+      const rightRoof = new THREE.Mesh(roofGeometry, roofMaterial);
+      rightRoof.position.set(width/4, height + 2, 0);
+      rightRoof.rotation.z = -Math.PI/6;
+      rightRoof.castShadow = true;
+      buildingGroup.add(rightRoof);
+    } else if (buildingConfig.roofStyle === 'Hip') {
+      // Hip roof (simplified)
+      const roofGeometry = new THREE.ConeGeometry(Math.max(width, length)/2, 3, 4);
+      const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+      roof.position.set(0, height + 1.5, 0);
+      roof.rotation.y = Math.PI/4;
+      roof.castShadow = true;
+      buildingGroup.add(roof);
+    }
     
     // Door
-    const doorGeometry = new THREE.PlaneGeometry(3, 7);
-    const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+    const doorMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.trimColor });
+    const doorGeometry = new THREE.PlaneGeometry(3, 6.5);
     const door = new THREE.Mesh(doorGeometry, doorMaterial);
-    door.position.set(-buildingConfig.width/4, 3.5, buildingConfig.depth/2 + 0.1);
-    building.add(door);
+    door.position.set(-width/4, 3.25, length/2 + 0.01);
+    buildingGroup.add(door);
     
-    // Window
-    const windowGeometry = new THREE.PlaneGeometry(4, 3);
-    const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB });
-    const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
-    window1.position.set(buildingConfig.width/4, 5, buildingConfig.depth/2 + 0.1);
-    building.add(window1);
+    // Door frame
+    const frameMaterial = new THREE.MeshLambertMaterial({ color: buildingConfig.trimColor });
+    const frameGeometry = new THREE.BoxGeometry(3.5, 7, 0.2);
+    const doorFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+    doorFrame.position.set(-width/4, 3.5, length/2 + 0.1);
+    buildingGroup.add(doorFrame);
     
-    building.castShadow = true;
-    buildingRef.current = building;
-    sceneRef.current.add(building);
+    // Windows (if any)
+    buildingConfig.windows.forEach((window, index) => {
+      const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.7 });
+      const windowGeometry = new THREE.PlaneGeometry(2, 2);
+      const windowMesh = new THREE.Mesh(windowGeometry, windowMaterial);
+      windowMesh.position.set(width/4, height/2, length/2 + 0.01);
+      buildingGroup.add(windowMesh);
+    });
+    
+    buildingRef.current = buildingGroup;
+    sceneRef.current.add(buildingGroup);
   };
 
-  useEffect(() => {
-    createBuilding();
-  }, [buildingConfig]);
+  // Calculate Pricing
+  const calculatePricing = () => {
+    const baseModel = buildingModels.find(m => m.name === buildingConfig.model);
+    let basePrice = baseModel ? baseModel.basePrice : 2500;
+    
+    // Size adjustments
+    const sizeMultiplier = (buildingConfig.width * buildingConfig.length) / 192; // 12x16 = 192 base
+    basePrice *= sizeMultiplier;
+    
+    // Roof style adjustment
+    const roofStyle = roofStyles.find(r => r.name === buildingConfig.roofStyle);
+    const roofPrice = roofStyle ? roofStyle.price : 0;
+    
+    // Features pricing
+    let featuresPrice = 0;
+    if (buildingConfig.features.loft) featuresPrice += 800;
+    if (buildingConfig.features.shelving) featuresPrice += 200;
+    if (buildingConfig.features.workbench) featuresPrice += 350;
+    if (buildingConfig.features.electrical) featuresPrice += 500;
+    if (buildingConfig.features.insulation) featuresPrice += 600;
+    
+    const total = Math.round(basePrice + roofPrice + featuresPrice);
+    
+    setBuildingConfig(prev => ({
+      ...prev,
+      pricing: {
+        base: Math.round(basePrice),
+        options: roofPrice + featuresPrice,
+        total: total
+      }
+    }));
+  };
 
+  // Handle configuration changes
+  const updateConfig = (key, value) => {
+    setBuildingConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const updateFeature = (feature, value) => {
+    setBuildingConfig(prev => ({
+      ...prev,
+      features: {
+        ...prev.features,
+        [feature]: value
+      }
+    }));
+  };
+
+  // Navigation
+  const nextStep = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const goToStep = (stepIndex) => {
+    setCurrentStep(stepIndex);
+  };
+
+  // Modal handlers
   const openModal = (type) => {
     setModalType(type);
     setIsModalOpen(true);
@@ -229,207 +392,366 @@ const BackwoodsBuildingsClone = () => {
     setModalType('');
   };
 
-  const handleConfigChange = (key, value) => {
-    setBuildingConfig(prev => ({
-      ...prev,
-      [key]: value
-    }));
+  // Render step content
+  const renderStepContent = () => {
+    const step = steps[currentStep];
+    
+    switch (step.component) {
+      case 'model':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Select Building Model</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {buildingModels.map((model) => (
+                <div
+                  key={model.name}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                    buildingConfig.model === model.name
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => updateConfig('model', model.name)}
+                >
+                  <h4 className="font-semibold text-gray-800">{model.name}</h4>
+                  <p className="text-sm text-gray-600">Starting at ${model.basePrice.toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 'width':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Select Width</h3>
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
+              {widthOptions.map((width) => (
+                <button
+                  key={width}
+                  className={`p-3 border-2 rounded-lg font-semibold transition-colors ${
+                    buildingConfig.width === width
+                      ? 'border-blue-500 bg-blue-500 text-white'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => updateConfig('width', width)}
+                >
+                  {width}'
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 'length':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Select Length</h3>
+            <div className="grid grid-cols-4 md:grid-cols-10 gap-3">
+              {lengthOptions.map((length) => (
+                <button
+                  key={length}
+                  className={`p-3 border-2 rounded-lg font-semibold transition-colors ${
+                    buildingConfig.length === length
+                      ? 'border-blue-500 bg-blue-500 text-white'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => updateConfig('length', length)}
+                >
+                  {length}'
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 'roof':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Select Roof Style</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {roofStyles.map((roof) => (
+                <div
+                  key={roof.name}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                    buildingConfig.roofStyle === roof.name
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => updateConfig('roofStyle', roof.name)}
+                >
+                  <h4 className="font-semibold text-gray-800">{roof.name}</h4>
+                  <p className="text-sm text-gray-600">
+                    {roof.price === 0 ? 'Included' : `+$${roof.price}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 'siding':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Select Siding Color</h3>
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+              {sidingColors.map((color) => (
+                <div
+                  key={color.name}
+                  className={`p-2 border-2 rounded-lg cursor-pointer transition-colors ${
+                    buildingConfig.sidingColor === color.color
+                      ? 'border-blue-500'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => updateConfig('sidingColor', color.color)}
+                >
+                  <div
+                    className="w-full h-16 rounded mb-2"
+                    style={{ backgroundColor: color.color }}
+                  ></div>
+                  <p className="text-sm text-center font-medium">{color.name}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 'trim':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Select Trim Color</h3>
+            <div className="grid grid-cols-4 md:grid-cols-4 gap-4">
+              {trimColors.map((color) => (
+                <div
+                  key={color.name}
+                  className={`p-2 border-2 rounded-lg cursor-pointer transition-colors ${
+                    buildingConfig.trimColor === color.color
+                      ? 'border-blue-500'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => updateConfig('trimColor', color.color)}
+                >
+                  <div
+                    className="w-full h-16 rounded mb-2"
+                    style={{ backgroundColor: color.color }}
+                  ></div>
+                  <p className="text-sm text-center font-medium">{color.name}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 'features':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Add Features</h3>
+            <div className="space-y-4">
+              {[
+                { key: 'loft', name: 'Loft Storage', price: 800, description: 'Additional overhead storage space' },
+                { key: 'shelving', name: 'Wall Shelving', price: 200, description: 'Built-in wall mounted shelves' },
+                { key: 'workbench', name: 'Workbench', price: 350, description: 'Sturdy work surface' },
+                { key: 'electrical', name: 'Electrical Package', price: 500, description: 'Wiring and outlets' },
+                { key: 'insulation', name: 'Insulation', price: 600, description: 'Wall and roof insulation' }
+              ].map((feature) => (
+                <div key={feature.key} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800">{feature.name}</h4>
+                    <p className="text-sm text-gray-600">{feature.description}</p>
+                    <p className="text-sm font-medium text-green-600">+${feature.price}</p>
+                  </div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={buildingConfig.features[feature.key]}
+                      onChange={(e) => updateFeature(feature.key, e.target.checked)}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        
+      case 'review':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Review Your Design</h3>
+            
+            {/* Configuration Summary */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <h4 className="font-semibold text-gray-800 mb-4">Configuration Summary</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="font-medium">Model:</span> {buildingConfig.model}</div>
+                <div><span className="font-medium">Size:</span> {buildingConfig.width}' × {buildingConfig.length}'</div>
+                <div><span className="font-medium">Roof:</span> {buildingConfig.roofStyle}</div>
+                <div><span className="font-medium">Siding:</span> {sidingColors.find(c => c.color === buildingConfig.sidingColor)?.name}</div>
+                <div><span className="font-medium">Trim:</span> {trimColors.find(c => c.color === buildingConfig.trimColor)?.name}</div>
+              </div>
+              
+              {/* Features */}
+              <div className="mt-4">
+                <span className="font-medium">Features:</span>
+                <ul className="list-disc list-inside text-sm mt-2">
+                  {Object.entries(buildingConfig.features).map(([key, value]) => 
+                    value && <li key={key} className="capitalize">{key.replace(/([A-Z])/g, ' $1')}</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+            
+            {/* Pricing */}
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <h4 className="font-semibold text-gray-800 mb-4">Pricing</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Base Price:</span>
+                  <span>${buildingConfig.pricing.base.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Options:</span>
+                  <span>${buildingConfig.pricing.options.toLocaleString()}</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                  <span>Total:</span>
+                  <span>${buildingConfig.pricing.total.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Save Options */}
+            <div className="flex space-x-4">
+              <button
+                onClick={() => openModal('save')}
+                className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+              >
+                Save Design
+              </button>
+              <button
+                onClick={() => openModal('quote')}
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Get Quote
+              </button>
+            </div>
+          </div>
+        );
+        
+      default:
+        return <div>Step not found</div>;
+    }
   };
-
-  const handleFeatureToggle = (feature) => {
-    setBuildingConfig(prev => ({
-      ...prev,
-      features: {
-        ...prev.features,
-        [feature]: !prev.features[feature]
-      }
-    }));
-  };
-
-  const handleFormChange = (field, value) => {
-    setQuoteForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const states = [
-    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 
-    'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 
-    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 
-    'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 
-    'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 
-    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 
-    'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 
-    'Wisconsin', 'Wyoming'
-  ];
 
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <header className="bg-green-800 text-white p-4">
-        <div className="container mx-auto">
-          <h1 className="text-2xl font-bold">Backwoods Buildings & Truss LLC.</h1>
-          <p className="text-sm">3D Designer</p>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Left Panel - Controls */}
-        <div className="w-80 bg-white shadow-lg p-4 max-h-screen overflow-y-auto">
-          <div className="space-y-6">
-            {/* Size Controls */}
-            <div>
-              <h3 className="font-semibold mb-3">Size</h3>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <label className="w-8">W</label>
-                  <input 
-                    type="number" 
-                    value={buildingConfig.width}
-                    onChange={(e) => handleConfigChange('width', parseInt(e.target.value))}
-                    className="border rounded px-2 py-1 w-16"
-                  />
-                  <span>ft.</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <label className="w-8">D</label>
-                  <input 
-                    type="number" 
-                    value={buildingConfig.depth}
-                    onChange={(e) => handleConfigChange('depth', parseInt(e.target.value))}
-                    className="border rounded px-2 py-1 w-16"
-                  />
-                  <span>ft.</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <label className="w-8">H</label>
-                  <input 
-                    type="number" 
-                    value={buildingConfig.height}
-                    onChange={(e) => handleConfigChange('height', parseInt(e.target.value))}
-                    className="border rounded px-2 py-1 w-16"
-                  />
-                  <span>ft.</span>
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">Backwoods Buildings</h1>
+              <span className="ml-2 text-sm text-gray-500">3D Building Designer</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => openModal('login')}
+                className="text-gray-600 hover:text-gray-900 font-medium"
+              >
+                Login
+              </button>
+              <div className="text-right">
+                <div className="text-sm text-gray-600">Total Price</div>
+                <div className="text-xl font-bold text-green-600">
+                  ${buildingConfig.pricing.total.toLocaleString()}
                 </div>
               </div>
-            </div>
-
-            {/* Ceiling Height */}
-            <div>
-              <h3 className="font-semibold mb-2">Ceiling Height</h3>
-              <select 
-                value={buildingConfig.ceilingHeight}
-                onChange={(e) => handleConfigChange('ceilingHeight', e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option>7' 0"</option>
-                <option>7' 6"</option>
-                <option>8' 0"</option>
-                <option>8' 6"</option>
-                <option>9' 0"</option>
-              </select>
-            </div>
-
-            {/* Roof Pitch */}
-            <div>
-              <h3 className="font-semibold mb-2">Roof Pitch</h3>
-              <select 
-                value={buildingConfig.roofPitch}
-                onChange={(e) => handleConfigChange('roofPitch', e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option>3:12</option>
-                <option>4:12</option>
-                <option>6:12</option>
-              </select>
-            </div>
-
-            {/* Roof Overhang */}
-            <div>
-              <h3 className="font-semibold mb-2">Roof Overhang</h3>
-              <select 
-                value={buildingConfig.roofOverhang}
-                onChange={(e) => handleConfigChange('roofOverhang', e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option>None</option>
-                <option>12"</option>
-                <option>18"</option>
-                <option>24"</option>
-              </select>
-            </div>
-
-            {/* Material */}
-            <div>
-              <h3 className="font-semibold mb-2">Material</h3>
-              <select 
-                value={buildingConfig.material}
-                onChange={(e) => handleConfigChange('material', e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option>Steel</option>
-                <option>Half Wood</option>
-                <option>Wood</option>
-                <option>Drywall</option>
-              </select>
-            </div>
-
-            {/* Features */}
-            <div>
-              <h3 className="font-semibold mb-2">Features</h3>
-              <div className="space-y-2">
-                {Object.entries(buildingConfig.features).map(([feature, enabled]) => (
-                  <label key={feature} className="flex items-center space-x-2">
-                    <input 
-                      type="checkbox" 
-                      checked={enabled}
-                      onChange={() => handleFeatureToggle(feature)}
-                      className="rounded"
-                    />
-                    <span className="capitalize">{feature.replace(/([A-Z])/g, ' $1')}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="space-y-2">
-              <button 
-                onClick={() => openModal('quote')}
-                className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
-              >
-                Request Quote
-              </button>
-              <button 
-                onClick={() => openModal('share')}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-              >
-                Share Creation
-              </button>
-              <button 
-                onClick={() => openModal('save')}
-                className="w-full bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700"
-              >
-                Save Design
-              </button>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Main 3D Viewer */}
-        <div className="flex-1 relative">
-          <div ref={mountRef} className="w-full h-screen" />
-          
-          {/* Instructions Overlay */}
-          <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white p-4 rounded">
-            <h3 className="font-semibold mb-2">3D Designer Instructions:</h3>
-            <ul className="text-sm space-y-1">
-              <li>Click and drag to rotate</li>
-              <li>Scroll to zoom in and out</li>
-              <li>Right click to move</li>
-            </ul>
-            <p className="text-xs mt-2 text-gray-300">3D configurators by ON THE Z</p>
+      {/* Progress Bar */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center py-4">
+            {steps.map((step, index) => (
+              <div key={index} className="flex items-center">
+                <button
+                  onClick={() => goToStep(index)}
+                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                    index <= currentStep
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+                <span className={`ml-2 text-sm font-medium ${
+                  index <= currentStep ? 'text-blue-600' : 'text-gray-600'
+                }`}>
+                  {step.title}
+                </span>
+                {index < steps.length - 1 && (
+                  <div className={`ml-4 w-8 h-0.5 ${
+                    index < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}></div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 3D Viewer */}
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="p-4 border-b bg-gray-50">
+              <h2 className="text-lg font-semibold text-gray-800">3D Preview</h2>
+              <p className="text-sm text-gray-600">Drag to rotate • Scroll to zoom</p>
+            </div>
+            <div className="relative">
+              <div ref={mountRef} className="w-full h-96"></div>
+              <div className="absolute top-4 right-4 bg-white bg-opacity-90 p-2 rounded text-sm">
+                <div><strong>Size:</strong> {buildingConfig.width}' × {buildingConfig.length}'</div>
+                <div><strong>Model:</strong> {buildingConfig.model}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Configuration Panel */}
+          <div className="bg-white rounded-lg shadow-lg">
+            <div className="p-6">
+              {renderStepContent()}
+            </div>
+            
+            {/* Navigation */}
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
+              <button
+                onClick={prevStep}
+                disabled={currentStep === 0}
+                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                  currentStep === 0
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-600 text-white hover:bg-gray-700'
+                }`}
+              >
+                Previous
+              </button>
+              
+              <button
+                onClick={nextStep}
+                disabled={currentStep === steps.length - 1}
+                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                  currentStep === steps.length - 1
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {currentStep === steps.length - 1 ? 'Complete' : 'Next'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -437,171 +759,127 @@ const BackwoodsBuildingsClone = () => {
       {/* Modals */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
-            {modalType === 'quote' && (
-              <div>
-                <h2 className="text-xl font-bold mb-4">Request Quote</h2>
-                <div className="space-y-3">
-                  <input 
-                    type="text" 
-                    placeholder="First name"
-                    value={quoteForm.firstName}
-                    onChange={(e) => handleFormChange('firstName', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Last name"
-                    value={quoteForm.lastName}
-                    onChange={(e) => handleFormChange('lastName', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="email" 
-                    placeholder="Email"
-                    value={quoteForm.email}
-                    onChange={(e) => handleFormChange('email', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="tel" 
-                    placeholder="Phone"
-                    value={quoteForm.phone}
-                    onChange={(e) => handleFormChange('phone', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Address"
-                    value={quoteForm.address}
-                    onChange={(e) => handleFormChange('address', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="City"
-                    value={quoteForm.city}
-                    onChange={(e) => handleFormChange('city', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <select 
-                    value={quoteForm.state}
-                    onChange={(e) => handleFormChange('state', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  >
-                    <option>Select State</option>
-                    {states.map(state => (
-                      <option key={state} value={state}>{state}</option>
-                    ))}
-                  </select>
-                  <input 
-                    type="text" 
-                    placeholder="Zip"
-                    value={quoteForm.zip}
-                    onChange={(e) => handleFormChange('zip', e.target.value)}
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <textarea 
-                    placeholder="Tell Us About Your Building (optional)"
-                    value={quoteForm.description}
-                    onChange={(e) => handleFormChange('description', e.target.value)}
-                    className="w-full border rounded px-3 py-2 h-20"
-                  />
-                </div>
-                <div className="flex space-x-2 mt-4">
-                  <button 
-                    onClick={closeModal}
-                    className="flex-1 bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
-                  >
-                    Close
-                  </button>
-                  <button 
-                    onClick={() => {
-                      alert('Quote request submitted!');
-                      closeModal();
-                    }}
-                    className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700"
-                  >
-                    Submit
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {modalType === 'share' && (
-              <div>
-                <h2 className="text-xl font-bold mb-4">Share your creation</h2>
-                <div className="space-y-3">
-                  <input 
-                    type="email" 
-                    placeholder="Who would you like to share with? (email)"
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Your first name"
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Your last name"
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <input 
-                    type="email" 
-                    placeholder="Your email address"
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <textarea 
-                    placeholder="Notes (optional)"
-                    className="w-full border rounded px-3 py-2 h-20"
-                  />
-                </div>
-                <div className="flex space-x-2 mt-4">
-                  <button 
-                    onClick={closeModal}
-                    className="flex-1 bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
-                  >
-                    Close
-                  </button>
-                  <button 
-                    onClick={() => {
-                      alert('Design shared successfully!');
-                      closeModal();
-                    }}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-                  >
-                    Share
-                  </button>
-                </div>
-              </div>
-            )}
-
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             {modalType === 'save' && (
               <div>
-                <h2 className="text-xl font-bold mb-4">Nice looking building!</h2>
-                <p className="mb-4">Email my saved design</p>
-                <div className="space-y-3">
-                  <textarea 
-                    placeholder="Notes (optional)"
-                    className="w-full border rounded px-3 py-2 h-20"
+                <h3 className="text-lg font-semibold mb-4">Save Your Design</h3>
+                <p className="text-gray-600 mb-4">Create an account to save your design and get a quote.</p>
+                <div className="space-y-4">
+                  <input
+                    type="text"
+                    placeholder="First Name"
+                    value={userInfo.firstName}
+                    onChange={(e) => setUserInfo(prev => ({...prev, firstName: e.target.value}))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    value={userInfo.lastName}
+                    onChange={(e) => setUserInfo(prev => ({...prev, lastName: e.target.value}))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={userInfo.email}
+                    onChange={(e) => setUserInfo(prev => ({...prev, email: e.target.value}))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone"
+                    value={userInfo.phone}
+                    onChange={(e) => setUserInfo(prev => ({...prev, phone: e.target.value}))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Zip Code"
+                    value={userInfo.zipCode}
+                    onChange={(e) => setUserInfo(prev => ({...prev, zipCode: e.target.value}))}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                <div className="flex space-x-2 mt-4">
-                  <button 
+                <div className="flex space-x-3 mt-6">
+                  <button
                     onClick={closeModal}
-                    className="flex-1 bg-gray-500 text-white py-2 rounded hover:bg-gray-600"
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
                   >
-                    Close
+                    Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       alert('Design saved successfully!');
                       closeModal();
                     }}
-                    className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700"
+                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors"
                   >
-                    Save
+                    Save Design
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {modalType === 'quote' && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Request Quote</h3>
+                <p className="text-gray-600 mb-4">Get a detailed quote for your custom building.</p>
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <h4 className="font-semibold mb-2">Your Configuration:</h4>
+                  <p className="text-sm">{buildingConfig.model} - {buildingConfig.width}' × {buildingConfig.length}'</p>
+                  <p className="text-lg font-bold text-green-600">${buildingConfig.pricing.total.toLocaleString()}</p>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      alert('Quote request sent! We will contact you soon.');
+                      closeModal();
+                    }}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Request Quote
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {modalType === 'login' && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Login</h3>
+                <div className="space-y-4">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex space-x-3 mt-6">
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      alert('Login functionality would be connected to backend');
+                      closeModal();
+                    }}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Login
                   </button>
                 </div>
               </div>

@@ -1,11 +1,11 @@
 import React from 'react';
-import TeamsApp from './components/TeamsApp';
+import BackwoodsBuildingsClone from './BackwoodsBuildingsClone';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <TeamsApp />
+      <BackwoodsBuildingsClone />
     </div>
   );
 }
